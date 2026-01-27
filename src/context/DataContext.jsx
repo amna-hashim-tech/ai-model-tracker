@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { fetchAllData } from '../services/huggingfaceApi';
+import { fetchAllData, clearCache } from '../services/huggingfaceApi';
 import { COMPANY_COLORS } from '../data/companyMapping';
 
 const DataContext = createContext(null);
@@ -50,9 +50,15 @@ export function DataProvider({ children }) {
     load();
   }, [load]);
 
+  const clearAndReload = useCallback(() => {
+    clearCache();
+    load();
+  }, [load]);
+
   const value = {
     ...state,
     reload: load,
+    clearAndReload,
     COMPANY_COLORS,
   };
 

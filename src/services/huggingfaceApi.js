@@ -6,7 +6,8 @@ import {
 } from '../data/companyMapping';
 
 const HF_API = 'https://huggingface.co/api/models';
-const CACHE_KEY = 'hf_model_cache';
+const CACHE_VERSION = 2; // bump to invalidate old caches
+const CACHE_KEY = `hf_model_cache_v${CACHE_VERSION}`;
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
 // ---------------------------------------------------------------------------
@@ -14,6 +15,9 @@ const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 // ---------------------------------------------------------------------------
 function getCache() {
   try {
+    // Remove any legacy unversioned cache
+    localStorage.removeItem('hf_model_cache');
+
     const raw = localStorage.getItem(CACHE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
@@ -36,6 +40,11 @@ function setCache(data) {
   } catch {
     // quota exceeded – ignore
   }
+}
+
+export function clearCache() {
+  localStorage.removeItem(CACHE_KEY);
+  localStorage.removeItem('hf_model_cache'); // legacy key
 }
 
 // ---------------------------------------------------------------------------

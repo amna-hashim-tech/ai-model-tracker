@@ -3,7 +3,7 @@ import { useData } from '../context/DataContext';
 
 export default function TopBar({ onToggleFullscreen }) {
   const [copied, setCopied] = useState(false);
-  const { status, progress, modelReleases, error, reload } = useData();
+  const { status, progress, modelReleases, error, reload, clearAndReload } = useData();
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href).catch(() => {});
@@ -63,6 +63,21 @@ export default function TopBar({ onToggleFullscreen }) {
 
       {/* Right: Actions */}
       <div className="flex items-center gap-1">
+        <button
+          onClick={clearAndReload}
+          disabled={status === 'loading'}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-mono text-slate-400 hover:text-cyan-300 hover:bg-[rgba(0,217,255,0.1)] transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+          title="Clear cache and fetch fresh data from Hugging Face"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={status === 'loading' ? 'animate-spin' : ''}>
+            <polyline points="23 4 23 10 17 10" />
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+          </svg>
+          <span className="hidden sm:inline">REFRESH</span>
+        </button>
+
+        <div className="w-px h-5 bg-slate-700/60 mx-0.5" />
+
         <button
           onClick={handleCopyLink}
           className="p-2 rounded-md text-slate-400 hover:text-cyan-300 hover:bg-[rgba(0,217,255,0.1)] transition-all duration-200"
