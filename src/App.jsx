@@ -1,11 +1,12 @@
 import { useState, useCallback } from 'react';
+import { DataProvider } from './context/DataContext';
 import GlobeVisualization from './components/GlobeVisualization';
 import TopBar from './components/TopBar';
 import LeftSidebar from './components/LeftSidebar';
 import BottomPanels from './components/BottomPanels';
 import ModelDetailPanel from './components/ModelDetailPanel';
 
-export default function App() {
+function AppContent() {
   const [layers, setLayers] = useState({
     modelReleases: true,
     companyHQs: true,
@@ -81,5 +82,13 @@ export default function App() {
         onClose={handleCloseDetail}
       />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <DataProvider>
+      <AppContent />
+    </DataProvider>
   );
 }

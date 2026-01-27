@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { useData } from '../context/DataContext';
 
 export default function TopBar({ onToggleFullscreen }) {
   const [copied, setCopied] = useState(false);
+  const { status, progress, modelReleases, error, reload } = useData();
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href).catch(() => {});
@@ -37,9 +39,26 @@ export default function TopBar({ onToggleFullscreen }) {
             AI TRACKER
           </span>
         </div>
-        <span className="text-[10px] text-slate-500 font-mono hidden md:inline border border-slate-700 rounded px-1.5 py-0.5">
-          LIVE
-        </span>
+        {/* Status badge */}
+        {status === 'loading' && (
+          <span className="text-[10px] text-cyan-400 font-mono border border-cyan-400/30 rounded px-1.5 py-0.5 animate-pulse hidden md:inline">
+            LOADING {progress.done}/{progress.total}
+          </span>
+        )}
+        {status === 'ready' && (
+          <span className="text-[10px] text-emerald-400 font-mono border border-emerald-400/30 rounded px-1.5 py-0.5 hidden md:inline">
+            LIVE · {modelReleases.length} MODELS
+          </span>
+        )}
+        {status === 'error' && (
+          <button
+            onClick={reload}
+            className="text-[10px] text-red-400 font-mono border border-red-400/30 rounded px-1.5 py-0.5 hover:bg-red-400/10 transition-colors hidden md:inline"
+            title={error}
+          >
+            ERROR · RETRY
+          </button>
+        )}
       </div>
 
       {/* Right: Actions */}

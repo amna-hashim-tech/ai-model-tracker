@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import Globe from 'react-globe.gl';
 import * as THREE from 'three';
-import { companies, connections, modelReleases, COMPANY_COLORS } from '../data/mockData';
+import { useData } from '../context/DataContext';
 
 const GLOBE_IMAGE_URL =
   '//unpkg.com/three-globe/example/img/earth-night.jpg';
@@ -14,9 +14,8 @@ export default function GlobeVisualization({
   onSelectCompany,
   selectedCompany,
 }) {
+  const { companies, connections, modelReleases, status } = useData();
   const globeRef = useRef();
-  const [globeReady, setGlobeReady] = useState(false);
-  const [hoverPoint, setHoverPoint] = useState(null);
   const [dimensions, setDimensions] = useState({
     width: window.innerWidth,
     height: window.innerHeight,
@@ -53,90 +52,79 @@ export default function GlobeVisualization({
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1.2;
     }
-
-    setGlobeReady(true);
   }, []);
 
+  // ---- Points: Company HQs ----
   const pointsData = useMemo(() => {
-    if (!layers.companyHQs) return [];
+    if (!layers.companyHQs || status !== 'ready') return [];
     return companies.map((c) => ({
       lat: c.lat,
       lng: c.lng,
       name: c.name,
       color: c.color,
-      size: 0.4 + c.modelsCount * 0.12,
+      size: 0.4 + Math.min(c.modelsCount, 10) * 0.12,
       id: c.id,
       altitude: 0.01,
       company: c,
     }));
-  }, [layers.companyHQs]);
+  }, [layers.companyHQs, companies, status]);
 
+  // ---- Rings: Pulse effect on HQs ----
   const ringsData = useMemo(() => {
-    if (!layers.companyHQs) return [];
+    if (!layers.companyHQs || status !== 'ready') return [];
     return companies.map((c) => ({
       lat: c.lat,
       lng: c.lng,
-      maxR: 3 + c.modelsCount * 0.5,
+      maxR: 3 + Math.min(c.modelsCount, 10) * 0.5,
       propagationSpeed: 2,
       repeatPeriod: 1200,
       color: () => c.color,
     }));
-  }, [layers.companyHQs]);
+  }, [layers.companyHQs, companies, status]);
 
+  // ---- Arcs: Company ↔ Research center ----
   const arcsData = useMemo(() => {
-    if (!layers.connectionArcs) return [];
+    if (!layers.connectionArcs || status !== 'ready') return [];
     if (selectedCompany) {
       return connections.filter((a) => a.company === selectedCompany);
     }
     return connections;
-  }, [layers.connectionArcs, selectedCompany]);
+  }, [layers.connectionArcs, selectedCompany, connections, status]);
 
-  const labelsData = useMemo(() => {
-    if (!layers.companyHQs) return [];
-    return companies.map((c) => ({
-      lat: c.lat,
-      lng: c.lng,
-      text: c.name,
-      color: c.color,
-      size: 0.7,
-      dotRadius: 0.4,
-      company: c,
-    }));
-  }, [layers.companyHQs]);
-
+  // ---- Model release markers ----
   const modelMarkersData = useMemo(() => {
-    if (!layers.modelReleases) return [];
+    if (!layers.modelReleases || status !== 'ready') return [];
     const grouped = {};
     modelReleases.forEach((m) => {
-      const company = companies.find((c) => c.id === m.companyId);
+      const company = companies.find(
+        (c) => c.name === m.company || c.id === m.companyId
+      );
       if (!company) return;
-      if (!grouped[m.companyId]) {
-        grouped[m.companyId] = {
-          lat: company.lat + (Math.random() - 0.5) * 2,
-          lng: company.lng + (Math.random() - 0.5) * 2,
-          models: [],
-          company,
-        };
+      const key = company.name;
+      if (!grouped[key]) {
+        grouped[key] = { models: [], company };
       }
-      grouped[m.companyId].models.push(m);
+      grouped[key].models.push(m);
     });
+
     return Object.values(grouped).flatMap((g) =>
       g.models.map((m, i) => {
         const angle = (i / g.models.length) * Math.PI * 2;
-        const radius = 1.5 + i * 0.3;
+        const radius = 1.5 + (i % 6) * 0.4;
         return {
           lat: g.company.lat + Math.cos(angle) * radius,
           lng: g.company.lng + Math.sin(angle) * radius,
           name: m.name,
           color: g.company.color,
-          altitude: 0.02 + i * 0.01,
-          size: m.type === 'Reasoning' ? 0.6 : m.type === 'Multimodal' ? 0.5 : 0.4,
+          altitude: 0.02 + (i % 5) * 0.008,
+          size: m.downloads > 1_000_000 ? 0.6 : m.downloads > 100_000 ? 0.5 : 0.4,
           model: m,
         };
       })
     );
-  }, [layers.modelReleases]);
+  }, [layers.modelReleases, modelReleases, companies, status]);
 
+  // ---- Click handlers ----
   const handlePointClick = useCallback(
     (point) => {
       if (point.company) {
@@ -167,16 +155,22 @@ export default function GlobeVisualization({
     [onSelectModel]
   );
 
+  // ---- Accessor callbacks ----
   const pointColor = useCallback((d) => d.color, []);
   const pointAlt = useCallback((d) => d.size * 0.15, []);
   const pointRadius = useCallback((d) => d.size, []);
   const pointLabel = useCallback(
-    (d) =>
-      `<div style="background:rgba(10,14,26,0.9);border:1px solid ${d.color};padding:8px 12px;border-radius:6px;font-family:monospace;color:#e2e8f0;font-size:12px;">
+    (d) => {
+      const dl = d.company?.totalDownloads;
+      const dlStr = dl
+        ? dl >= 1e9 ? `${(dl/1e9).toFixed(1)}B` : dl >= 1e6 ? `${(dl/1e6).toFixed(1)}M` : dl >= 1e3 ? `${(dl/1e3).toFixed(1)}K` : String(dl)
+        : '0';
+      return `<div style="background:rgba(10,14,26,0.9);border:1px solid ${d.color};padding:8px 12px;border-radius:6px;font-family:monospace;color:#e2e8f0;font-size:12px;">
         <div style="color:${d.color};font-weight:bold;margin-bottom:4px;">${d.name}</div>
         <div>${d.company?.hq || ''}</div>
-        <div style="color:#94a3b8;font-size:11px;">${d.company?.modelsCount || 0} models released</div>
-      </div>`,
+        <div style="color:#94a3b8;font-size:11px;">${d.company?.modelsCount || 0} models · ${dlStr} downloads</div>
+      </div>`;
+    },
     []
   );
 
@@ -191,23 +185,6 @@ export default function GlobeVisualization({
       `<div style="background:rgba(10,14,26,0.9);border:1px solid ${d.color};padding:6px 10px;border-radius:6px;font-family:monospace;color:#e2e8f0;font-size:11px;">
         <span style="color:${d.color};">${d.company}</span> ↔ ${d.center}
       </div>`,
-    []
-  );
-
-  const hexBinColor = useCallback((d) => d.color || '#00d9ff', []);
-  const hexLabel = useCallback(
-    (d) => {
-      if (!d.model) return '';
-      const m = d.model;
-      return `<div style="background:rgba(10,14,26,0.95);border:1px solid ${d.color};padding:10px 14px;border-radius:8px;font-family:monospace;color:#e2e8f0;font-size:12px;max-width:250px;">
-        <div style="color:${d.color};font-weight:bold;font-size:13px;margin-bottom:6px;">${m.name}</div>
-        <div style="margin-bottom:3px;">Company: ${m.company}</div>
-        <div style="margin-bottom:3px;">Released: ${m.date}</div>
-        <div style="margin-bottom:3px;">Parameters: ${m.parameters}</div>
-        <div style="margin-bottom:3px;">Type: ${m.type}</div>
-        <div style="color:#00d9ff;font-size:11px;margin-top:6px;">Click for details →</div>
-      </div>`;
-    },
     []
   );
 
@@ -248,7 +225,7 @@ export default function GlobeVisualization({
         arcDashAnimateTime={arcDashAnimateTime}
         arcAltitudeAutoScale={arcAltAutoScale}
         arcLabel={arcLabel}
-        // Model markers as custom points (using second layer of points)
+        // Model release markers
         htmlElementsData={modelMarkersData}
         htmlElement={(d) => {
           const el = document.createElement('div');
