@@ -4,44 +4,95 @@ import { formatDownloads } from '../services/huggingfaceApi';
 
 export default function LeftSidebar({ layers, onToggleLayer, selectedCompany, onSelectCompany }) {
   const { companies, modelReleases, status } = useData();
-  const { stats, filteredModels, activeFilterCount } = useFilters();
+  const { stats, filteredModels, activeFilterCount, hasActiveFilters, matchingCompanyIds } = useFilters();
 
   const modelTypes = status === 'ready'
     ? [...new Set(modelReleases.map((m) => m.type))].filter(Boolean).slice(0, 8)
     : ['LLM', 'Multimodal', 'Image Gen', 'Embeddings'];
 
+  // Check if a company matches current filters
+  const isCompanyMatching = (companyId) => {
+    if (!matchingCompanyIds) return true;
+    return matchingCompanyIds.has(companyId);
+  };
+
   return (
     <aside className="fixed top-24 left-3 z-40 w-56 flex flex-col gap-2.5 max-h-[calc(100vh-140px)] overflow-y-auto sidebar-scroll">
       {/* Stats Dashboard */}
       {stats && (
-        <div className="glass-panel rounded-lg p-3">
+        <div className={`glass-panel rounded-lg p-3 ${hasActiveFilters ? 'ring-1 ring-cyan-500/20' : ''}`}>
           <h3 className="text-[11px] font-bold tracking-widest text-cyan-400 font-mono mb-2.5 flex items-center gap-2">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 20V10" /><path d="M12 20V4" /><path d="M6 20v-6" /></svg>
             DASHBOARD
+            {hasActiveFilters && <span className="text-[8px] text-cyan-500/70 font-normal ml-auto">FILTERED</span>}
           </h3>
           <div className="grid grid-cols-2 gap-2">
+            {/* Models count */}
             <div className="p-2 rounded bg-slate-900/50 border border-slate-800/40 text-center">
-              <p className="text-sm font-bold text-cyan-400 font-mono">{stats.totalModels}</p>
-              <p className="text-[9px] text-slate-500 uppercase tracking-wider">Total Models</p>
+              {hasActiveFilters ? (
+                <>
+                  <p className="text-sm font-bold text-cyan-400 font-mono">{stats.filteredCount}</p>
+                  <p className="text-[9px] text-slate-500 uppercase tracking-wider">
+                    of {stats.totalModels} Models
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-bold text-cyan-400 font-mono">{stats.totalModels}</p>
+                  <p className="text-[9px] text-slate-500 uppercase tracking-wider">Total Models</p>
+                </>
+              )}
             </div>
+
+            {/* New this week */}
             <div className="p-2 rounded bg-slate-900/50 border border-slate-800/40 text-center">
-              <p className="text-sm font-bold text-emerald-400 font-mono">{stats.newThisWeek}</p>
-              <p className="text-[9px] text-slate-500 uppercase tracking-wider">New 7d</p>
+              {hasActiveFilters ? (
+                <>
+                  <p className="text-sm font-bold text-emerald-400 font-mono">{stats.filteredNewThisWeek}</p>
+                  <p className="text-[9px] text-slate-500 uppercase tracking-wider">
+                    of {stats.totalNewThisWeek} New 7d
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-bold text-emerald-400 font-mono">{stats.totalNewThisWeek}</p>
+                  <p className="text-[9px] text-slate-500 uppercase tracking-wider">New 7d</p>
+                </>
+              )}
             </div>
+
+            {/* Downloads */}
             <div className="p-2 rounded bg-slate-900/50 border border-slate-800/40 text-center">
-              <p className="text-sm font-bold text-purple-400 font-mono">{formatDownloads(stats.totalDownloads)}</p>
-              <p className="text-[9px] text-slate-500 uppercase tracking-wider">Downloads</p>
+              {hasActiveFilters ? (
+                <>
+                  <p className="text-sm font-bold text-purple-400 font-mono">{formatDownloads(stats.filteredDownloads)}</p>
+                  <p className="text-[9px] text-slate-500 uppercase tracking-wider">Downloads (filtered)</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-bold text-purple-400 font-mono">{formatDownloads(stats.totalDownloads)}</p>
+                  <p className="text-[9px] text-slate-500 uppercase tracking-wider">Downloads</p>
+                </>
+              )}
             </div>
+
+            {/* Top Org */}
             <div className="p-2 rounded bg-slate-900/50 border border-slate-800/40 text-center">
-              <p className="text-[11px] font-bold text-orange-400 font-mono truncate">{stats.mostActiveOrg?.name || '—'}</p>
-              <p className="text-[9px] text-slate-500 uppercase tracking-wider">Top Org ({stats.mostActiveOrg?.count || 0})</p>
+              {hasActiveFilters ? (
+                <>
+                  <p className="text-[11px] font-bold text-orange-400 font-mono truncate">{stats.filteredMostActiveOrg?.name || '—'}</p>
+                  <p className="text-[9px] text-slate-500 uppercase tracking-wider">
+                    Top ({stats.filteredMostActiveOrg?.count || 0} filtered)
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-[11px] font-bold text-orange-400 font-mono truncate">{stats.totalMostActiveOrg?.name || '—'}</p>
+                  <p className="text-[9px] text-slate-500 uppercase tracking-wider">Top Org ({stats.totalMostActiveOrg?.count || 0})</p>
+                </>
+              )}
             </div>
           </div>
-          {activeFilterCount > 0 && (
-            <div className="mt-2 text-[10px] text-slate-500 font-mono text-center border-t border-slate-800/40 pt-2">
-              Showing <span className="text-cyan-400">{filteredModels.length}</span> of {stats.totalModels} models
-            </div>
-          )}
         </div>
       )}
 
@@ -92,21 +143,36 @@ export default function LeftSidebar({ layers, onToggleLayer, selectedCompany, on
           </div>
         ) : (
           <div className="flex flex-col gap-1">
-            {companies.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => onSelectCompany(selectedCompany === c.name ? null : c.name)}
-                className={`flex items-center gap-2 px-2 py-1 rounded text-left transition-all text-xs ${
-                  selectedCompany === c.name
-                    ? 'bg-[rgba(0,217,255,0.1)] ring-1 ring-cyan-500/30'
-                    : 'hover:bg-[rgba(0,217,255,0.05)]'
-                }`}
-              >
-                <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.color, boxShadow: `0 0 6px ${c.color}66` }} />
-                <span className="text-slate-300 truncate">{c.name}</span>
-                <span className="text-slate-600 text-[10px] ml-auto font-mono" title={`${c.modelsCount} models`}>{c.modelsCount}</span>
-              </button>
-            ))}
+            {companies.map((c) => {
+              const matching = isCompanyMatching(c.id);
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => onSelectCompany(selectedCompany === c.name ? null : c.name)}
+                  className={`flex items-center gap-2 px-2 py-1 rounded text-left transition-all text-xs ${
+                    selectedCompany === c.name
+                      ? 'bg-[rgba(0,217,255,0.1)] ring-1 ring-cyan-500/30'
+                      : hasActiveFilters && !matching
+                        ? 'opacity-35 hover:opacity-60'
+                        : 'hover:bg-[rgba(0,217,255,0.05)]'
+                  }`}
+                >
+                  <div
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0 transition-all"
+                    style={{
+                      backgroundColor: matching ? c.color : '#334155',
+                      boxShadow: matching ? `0 0 6px ${c.color}66` : 'none',
+                    }}
+                  />
+                  <span className={`truncate transition-colors ${matching ? 'text-slate-300' : 'text-slate-600'}`}>
+                    {c.name}
+                  </span>
+                  <span className={`text-[10px] ml-auto font-mono ${matching ? 'text-slate-600' : 'text-slate-700'}`} title={`${c.modelsCount} models`}>
+                    {c.modelsCount}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>

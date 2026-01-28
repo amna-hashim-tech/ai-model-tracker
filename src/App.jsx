@@ -4,6 +4,7 @@ import { FilterProvider } from './context/FilterContext';
 import GlobeVisualization from './components/GlobeVisualization';
 import TopBar from './components/TopBar';
 import SearchAndFilters from './components/SearchAndFilters';
+import ActiveFilterBanner from './components/ActiveFilterBanner';
 import LeftSidebar from './components/LeftSidebar';
 import BottomPanels from './components/BottomPanels';
 import TimelineControls from './components/TimelineControls';
@@ -68,6 +69,7 @@ function AppContent() {
       {/* UI Overlays */}
       <TopBar />
       <SearchAndFilters />
+      <ActiveFilterBanner />
       <LeftSidebar
         layers={layers}
         onToggleLayer={handleToggleLayer}

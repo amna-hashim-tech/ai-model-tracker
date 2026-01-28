@@ -41,6 +41,8 @@ export function FilterProvider({ children }) {
     return c;
   }, [search, timeRange, filters]);
 
+  const hasActiveFilters = activeFilterCount > 0;
+
   // -- Comparison --
   const toggleCompare = useCallback((modelId) => {
     setCompareList((prev) => {
@@ -67,39 +69,84 @@ export function FilterProvider({ children }) {
     [modelReleases, compareList]
   );
 
+  // -- Matching company IDs (companies that have models in the filtered set) --
+  const matchingCompanyIds = useMemo(() => {
+    if (!hasActiveFilters || status !== 'ready') return null; // null = no filter active, show everything
+    const ids = new Set();
+    for (const m of filteredModels) {
+      const company = companies.find(
+        (c) => c.name === m.company || c.id === m.companyId
+      );
+      if (company) ids.add(company.id);
+    }
+    return ids;
+  }, [filteredModels, companies, hasActiveFilters, status]);
+
+  // -- Insights & What's New computed from FILTERED models --
   const smartInsights = useMemo(
-    () => (status === 'ready' ? computeInsights(modelReleases) : []),
-    [modelReleases, status]
+    () => (status === 'ready' ? computeInsights(filteredModels) : []),
+    [filteredModels, status]
   );
 
   const whatsNew = useMemo(
-    () => (status === 'ready' ? groupByRecency(modelReleases) : []),
-    [modelReleases, status]
+    () => (status === 'ready' ? groupByRecency(filteredModels) : []),
+    [filteredModels, status]
   );
 
-  // -- Stats for dashboard --
+  // -- Stats for dashboard (both total and filtered) --
   const stats = useMemo(() => {
     if (status !== 'ready') return null;
     const now = Date.now();
     const weekAgo = now - 7 * 86_400_000;
-    const newThisWeek = modelReleases.filter(
+
+    // Total stats (always from all models)
+    const totalModels = modelReleases.length;
+    const totalNewThisWeek = modelReleases.filter(
       (m) => m.createdAt && new Date(m.createdAt).getTime() > weekAgo
     ).length;
     const totalDownloads = modelReleases.reduce((s, m) => s + (m.downloads || 0), 0);
-    const orgCounts = {};
+    const totalOrgCounts = {};
     for (const m of modelReleases) {
-      orgCounts[m.company] = (orgCounts[m.company] || 0) + 1;
+      totalOrgCounts[m.company] = (totalOrgCounts[m.company] || 0) + 1;
     }
-    const mostActiveOrg = Object.entries(orgCounts).sort((a, b) => b[1] - a[1])[0];
+    const totalMostActiveOrg = Object.entries(totalOrgCounts).sort((a, b) => b[1] - a[1])[0];
+
+    // Filtered stats
+    const filteredCount = filteredModels.length;
+    const filteredNewThisWeek = filteredModels.filter(
+      (m) => m.createdAt && new Date(m.createdAt).getTime() > weekAgo
+    ).length;
+    const filteredDownloads = filteredModels.reduce((s, m) => s + (m.downloads || 0), 0);
+    const filteredOrgCounts = {};
+    for (const m of filteredModels) {
+      filteredOrgCounts[m.company] = (filteredOrgCounts[m.company] || 0) + 1;
+    }
+    const filteredMostActiveOrg = Object.entries(filteredOrgCounts).sort((a, b) => b[1] - a[1])[0];
 
     return {
-      totalModels: modelReleases.length,
-      newThisWeek,
+      totalModels,
+      totalNewThisWeek,
       totalDownloads,
-      mostActiveOrg: mostActiveOrg ? { name: mostActiveOrg[0], count: mostActiveOrg[1] } : null,
-      filteredCount: filteredModels.length,
+      totalMostActiveOrg: totalMostActiveOrg ? { name: totalMostActiveOrg[0], count: totalMostActiveOrg[1] } : null,
+      filteredCount,
+      filteredNewThisWeek,
+      filteredDownloads,
+      filteredMostActiveOrg: filteredMostActiveOrg ? { name: filteredMostActiveOrg[0], count: filteredMostActiveOrg[1] } : null,
     };
   }, [modelReleases, filteredModels, status]);
+
+  // -- Active filter description for banner --
+  const filterDescription = useMemo(() => {
+    const parts = [];
+    if (filters.type.length > 0) parts.push(filters.type.join(', ') + ' models');
+    if (filters.size.length > 0) parts.push(filters.size.map((s) => {
+      const labels = { tiny: '<1B', small: '1-7B', medium: '7-13B', large: '13-70B', huge: '70B+' };
+      return labels[s] || s;
+    }).join(', ') + ' size');
+    if (timeRange !== 'all') parts.push(`last ${timeRange}`);
+    if (search) parts.push(`"${search}"`);
+    return parts.join(' + ');
+  }, [filters, timeRange, search]);
 
   // -- Available filter options from data --
   const availableTypes = useMemo(
@@ -111,13 +158,15 @@ export function FilterProvider({ children }) {
     search, setSearch,
     timeRange, setTimeRange,
     sortBy, setSortBy,
-    filters, toggleFilter, clearFilters, activeFilterCount,
+    filters, toggleFilter, clearFilters, activeFilterCount, hasActiveFilters,
     compareList, toggleCompare, clearCompare, compareModels,
     showComparison, setShowComparison,
     filteredModels,
+    matchingCompanyIds,
     smartInsights,
     whatsNew,
     stats,
+    filterDescription,
     availableTypes,
   };
 

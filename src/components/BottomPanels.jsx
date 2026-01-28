@@ -4,8 +4,8 @@ import { useFilters } from '../context/FilterContext';
 import { isNew, velocityFormatted } from '../services/modelUtils';
 
 function WhatsNewFeed() {
-  const { status, COMPANY_COLORS } = useData();
-  const { whatsNew } = useFilters();
+  const { status, COMPANY_COLORS, modelReleases } = useData();
+  const { whatsNew, hasActiveFilters, filteredModels } = useFilters();
   const scrollRef = useRef(null);
   const [paused, setPaused] = useState(false);
 
@@ -25,15 +25,24 @@ function WhatsNewFeed() {
     return () => clearInterval(interval);
   }, [paused, hasGroups]);
 
-  const totalNew = whatsNew.reduce((s, g) => s + g.models.length, 0);
+  const filteredCount = filteredModels.length;
+  const totalCount = modelReleases.length;
 
   return (
-    <div className="glass-panel rounded-lg p-3 w-full md:w-80 h-48 flex flex-col">
+    <div className={`glass-panel rounded-lg p-3 w-full md:w-80 h-48 flex flex-col ${hasActiveFilters ? 'ring-1 ring-cyan-500/20' : ''}`}>
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-[11px] font-bold tracking-widest text-cyan-400 font-mono flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
           WHAT'S NEW
-          {status === 'ready' && <span className="text-slate-600 font-normal">({totalNew})</span>}
+          {status === 'ready' && (
+            hasActiveFilters ? (
+              <span className="text-slate-500 font-normal">
+                (<span className="text-cyan-400">{filteredCount}</span> of {totalCount})
+              </span>
+            ) : (
+              <span className="text-slate-600 font-normal">({totalCount})</span>
+            )
+          )}
         </h3>
         {hasGroups && (
           <button
@@ -105,8 +114,8 @@ function WhatsNewFeed() {
 }
 
 function SmartInsights({ onApplyFilter }) {
-  const { smartInsights } = useFilters();
-  const { COMPANY_COLORS } = useData();
+  const { smartInsights, hasActiveFilters, filteredModels } = useFilters();
+  const { COMPANY_COLORS, modelReleases } = useData();
   const [active, setActive] = useState(0);
 
   useEffect(() => {
@@ -121,10 +130,11 @@ function SmartInsights({ onApplyFilter }) {
   const insight = smartInsights[active] || smartInsights[0];
 
   return (
-    <div className="glass-panel rounded-lg p-3 w-full md:w-80 h-48 flex flex-col">
+    <div className={`glass-panel rounded-lg p-3 w-full md:w-80 h-48 flex flex-col ${hasActiveFilters ? 'ring-1 ring-cyan-500/20' : ''}`}>
       <h3 className="text-[11px] font-bold tracking-widest text-cyan-400 font-mono mb-2 flex items-center gap-2">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" /></svg>
         DISCOVER
+        {hasActiveFilters && <span className="text-[8px] text-cyan-500/70 font-normal ml-auto">FILTERED</span>}
       </h3>
       <div className="flex-1 flex flex-col">
         {/* Tabs */}
