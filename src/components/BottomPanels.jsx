@@ -94,9 +94,15 @@ function WhatsNewFeed() {
                       <div className="text-[9px] text-slate-600 font-mono flex items-center gap-1.5 mt-0.5">
                         <span style={{ color }}>{m.company}</span>
                         <span>·</span>
-                        <span>↓{m.downloadsFormatted}</span>
-                        <span>·</span>
-                        <span>{velocityFormatted(m)}</span>
+                        {m.source === 'official' ? (
+                          <span className="text-orange-400/70">API only</span>
+                        ) : (
+                          <>
+                            <span>↓{m.downloadsFormatted}</span>
+                            <span>·</span>
+                            <span>{velocityFormatted(m)}</span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -166,11 +172,13 @@ function SmartInsights({ onApplyFilter }) {
                   <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
                   <span className="text-[11px] text-slate-300 truncate flex-1">{m.name}</span>
                   <span className="text-[9px] text-slate-500 font-mono flex-shrink-0">
-                    {insight.key === 'trending' || insight.key === 'rising'
-                      ? velocityFormatted(m)
-                      : insight.key === 'favorites'
-                        ? `♥${m.likes}`
-                        : m.downloadsFormatted}
+                    {m.source === 'official' && !m.downloads
+                      ? 'API only'
+                      : insight.key === 'trending' || insight.key === 'rising'
+                        ? velocityFormatted(m)
+                        : insight.key === 'favorites'
+                          ? `♥${m.likes}`
+                          : m.downloadsFormatted}
                   </span>
                 </div>
               );

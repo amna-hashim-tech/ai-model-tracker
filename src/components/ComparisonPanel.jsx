@@ -15,18 +15,19 @@ export default function ComparisonPanel() {
   const maxVel = Math.max(...compareModels.map((m) => velocity(m)), 1);
 
   const rows = [
+    { label: 'Source', render: (m) => m.source === 'official' ? 'Official' : 'Hugging Face' },
     { label: 'Type', render: (m) => m.type },
     { label: 'Parameters', render: (m) => m.parameters },
     { label: 'Released', render: (m) => m.date },
     { label: 'Age', render: (m) => ageLabel(m.createdAt) },
     {
       label: 'Downloads',
-      render: (m) => formatDownloads(m.downloads),
+      render: (m) => m.source === 'official' && !m.downloads ? 'API only' : formatDownloads(m.downloads),
       bar: (m) => (m.downloads || 0) / maxDl,
     },
     {
       label: 'Velocity',
-      render: (m) => velocityFormatted(m),
+      render: (m) => m.source === 'official' && !m.downloads ? '—' : velocityFormatted(m),
       bar: (m) => velocity(m) / maxVel,
     },
     {
@@ -114,16 +115,18 @@ export default function ComparisonPanel() {
           </div>
         ))}
 
-        {/* HF links */}
+        {/* Links */}
         <div className="grid p-3" style={{ gridTemplateColumns: `120px repeat(${compareModels.length}, 1fr)` }}>
           <div />
           {compareModels.map((m) => {
             const color = COMPANY_COLORS[m.company] || '#00d9ff';
+            const url = m.hfId ? `https://huggingface.co/${m.hfId}` : m.officialUrl;
+            const label = m.hfId ? 'View on HF →' : 'Official Page →';
             return (
               <div key={m.id} className="px-2 text-center">
-                {m.hfId && (
+                {url && (
                   <a
-                    href={`https://huggingface.co/${m.hfId}`}
+                    href={url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-[10px] font-mono py-1.5 px-3 rounded border inline-block transition-all"
@@ -131,7 +134,7 @@ export default function ComparisonPanel() {
                     onMouseEnter={(e) => { e.currentTarget.style.background = `${color}18`; }}
                     onMouseLeave={(e) => { e.currentTarget.style.background = `${color}08`; }}
                   >
-                    View on HF →
+                    {label}
                   </a>
                 )}
               </div>

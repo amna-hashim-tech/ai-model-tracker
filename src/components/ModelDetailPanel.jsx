@@ -10,11 +10,13 @@ export default function ModelDetailPanel({ model, company, onClose }) {
 
   if (!model && !company) return null;
 
-  const handleShare = (hfId) => {
-    const url = `https://huggingface.co/${hfId}`;
-    navigator.clipboard.writeText(url).catch(() => {});
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
+  const handleShare = (m) => {
+    const url = m.officialUrl || (m.hfId ? `https://huggingface.co/${m.hfId}` : '');
+    if (url) {
+      navigator.clipboard.writeText(url).catch(() => {});
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    }
   };
 
   // --- Company view ---
@@ -80,11 +82,12 @@ export default function ModelDetailPanel({ model, company, onClose }) {
                     <span>↓ {m.downloadsFormatted || '—'}</span>
                     <span>♥ {m.likes != null ? m.likes.toLocaleString() : '—'}</span>
                     <span className="text-cyan-400/60">{velocityFormatted(m)}</span>
+                    {m.source === 'official' && <span className="text-orange-400/60">Official</span>}
                   </div>
                 </div>
               );
             })}
-            {companyModels.length === 0 && <p className="text-[11px] text-slate-600 text-center py-4">No models found on Hugging Face</p>}
+            {companyModels.length === 0 && <p className="text-[11px] text-slate-600 text-center py-4">No models tracked</p>}
           </div>
         </div>
       </div>
@@ -112,6 +115,16 @@ export default function ModelDetailPanel({ model, company, onClose }) {
             </div>
             <h2 className="text-lg font-bold text-white break-all">{model.name}</h2>
             {model.hfId && <p className="text-[10px] text-slate-600 font-mono mt-0.5 truncate" title={model.hfId}>{model.hfId}</p>}
+            <div className="flex items-center gap-1.5 mt-1">
+              {model.source === 'official' ? (
+                <span className="text-[8px] px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-400 border border-orange-500/30 font-mono">OFFICIAL</span>
+              ) : (
+                <span className="text-[8px] px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-400 border border-yellow-500/30 font-mono">HUGGING FACE</span>
+              )}
+              {!model.openSource && (
+                <span className="text-[8px] px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-400 border border-slate-600/30 font-mono">CLOSED SOURCE</span>
+              )}
+            </div>
           </div>
           <button onClick={onClose} className="p-1 rounded text-slate-500 hover:text-white hover:bg-slate-800 transition-colors flex-shrink-0">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
@@ -190,7 +203,7 @@ export default function ModelDetailPanel({ model, company, onClose }) {
 
       {/* Quick Actions */}
       <div className="p-3 flex flex-col gap-2">
-        {model.hfId && (
+        {model.hfId ? (
           <a
             href={`https://huggingface.co/${model.hfId}`}
             target="_blank"
@@ -202,7 +215,19 @@ export default function ModelDetailPanel({ model, company, onClose }) {
           >
             View on Hugging Face →
           </a>
-        )}
+        ) : model.officialUrl ? (
+          <a
+            href={model.officialUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block w-full text-center text-[11px] font-mono py-2 rounded border transition-all"
+            style={{ borderColor: `${color}44`, color, background: `${color}08` }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = `${color}18`; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = `${color}08`; }}
+          >
+            View Official Page →
+          </a>
+        ) : null}
         <div className="flex gap-2">
           <button
             onClick={() => toggleCompare(model.id)}
@@ -215,7 +240,7 @@ export default function ModelDetailPanel({ model, company, onClose }) {
             {inCompare ? '✓ In Compare' : '+ Compare'}
           </button>
           <button
-            onClick={() => handleShare(model.hfId)}
+            onClick={() => handleShare(model)}
             className="flex-1 text-center text-[11px] font-mono py-2 rounded border border-slate-700/50 text-slate-400 hover:text-cyan-400 hover:border-cyan-500/40 transition-all"
           >
             {copiedLink ? '✓ Copied' : 'Share'}

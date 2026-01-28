@@ -4,9 +4,10 @@ import {
   COMPANY_COLORS,
   researchCenters,
 } from '../data/companyMapping';
+import { MANUAL_MODELS, MANUAL_COMPANIES } from '../data/manualModels';
 
 const HF_API = 'https://huggingface.co/api/models';
-const CACHE_VERSION = 2; // bump to invalidate old caches
+const CACHE_VERSION = 3; // bump to invalidate old caches (v3: added manual models)
 const CACHE_KEY = `hf_model_cache_v${CACHE_VERSION}`;
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
@@ -15,8 +16,9 @@ const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 // ---------------------------------------------------------------------------
 function getCache() {
   try {
-    // Remove any legacy unversioned cache
+    // Remove legacy cache keys
     localStorage.removeItem('hf_model_cache');
+    localStorage.removeItem('hf_model_cache_v2');
 
     const raw = localStorage.getItem(CACHE_KEY);
     if (!raw) return null;
@@ -44,7 +46,8 @@ function setCache(data) {
 
 export function clearCache() {
   localStorage.removeItem(CACHE_KEY);
-  localStorage.removeItem('hf_model_cache'); // legacy key
+  localStorage.removeItem('hf_model_cache');
+  localStorage.removeItem('hf_model_cache_v2');
 }
 
 // ---------------------------------------------------------------------------
@@ -168,6 +171,7 @@ function transformModel(raw, orgKey) {
       : raw.likes > 100
         ? `${raw.likes} community likes`
         : null,
+    source: 'huggingface',
   };
 }
 
@@ -287,7 +291,24 @@ export async function fetchAllData(onProgress) {
     }
   }
 
-  // 3. Build derived structures
+  // 3. Merge manual models (API-only / closed-source)
+  for (const m of MANUAL_MODELS) {
+    // Avoid duplicates if an HF model shares the same id
+    if (!allModels.some((existing) => existing.id === m.id)) {
+      allModels.push(m);
+      const orgKey = m.companyId;
+      if (!modelsByOrg[orgKey]) modelsByOrg[orgKey] = [];
+      modelsByOrg[orgKey].push(m);
+    }
+  }
+  // Ensure manual companies are in the org mapping for buildCompanies
+  for (const [key, info] of Object.entries(MANUAL_COMPANIES)) {
+    if (!ORG_TO_COMPANY[info.id]) {
+      ORG_TO_COMPANY[info.id] = info;
+    }
+  }
+
+  // 4. Build derived structures
   const companies = buildCompanies(modelsByOrg);
   const connections = buildConnections(companies);
   const liveUpdates = buildLiveUpdates(allModels);
