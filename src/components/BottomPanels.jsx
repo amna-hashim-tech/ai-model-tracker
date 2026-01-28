@@ -1,18 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { useData } from '../context/DataContext';
-import { insights } from '../data/companyMapping';
+import { useFilters } from '../context/FilterContext';
+import { isNew, velocityFormatted } from '../services/modelUtils';
 
-function LiveUpdatesFeed() {
-  const { liveUpdates, status, COMPANY_COLORS } = useData();
+function WhatsNewFeed() {
+  const { status, COMPANY_COLORS } = useData();
+  const { whatsNew } = useFilters();
   const scrollRef = useRef(null);
   const [paused, setPaused] = useState(false);
 
-  const items = status === 'ready' && liveUpdates.length > 0
-    ? liveUpdates
-    : [];
+  const hasGroups = whatsNew.length > 0;
 
   useEffect(() => {
-    if (paused || items.length === 0) return;
+    if (paused || !hasGroups) return;
     const el = scrollRef.current;
     if (!el) return;
     const interval = setInterval(() => {
@@ -21,21 +21,21 @@ function LiveUpdatesFeed() {
       } else {
         el.scrollTop += 1;
       }
-    }, 50);
+    }, 60);
     return () => clearInterval(interval);
-  }, [paused, items.length]);
+  }, [paused, hasGroups]);
+
+  const totalNew = whatsNew.reduce((s, g) => s + g.models.length, 0);
 
   return (
-    <div className="glass-panel rounded-lg p-3 w-full md:w-80 h-44 flex flex-col">
+    <div className="glass-panel rounded-lg p-3 w-full md:w-80 h-48 flex flex-col">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-[11px] font-bold tracking-widest text-cyan-400 font-mono flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          RECENT RELEASES
-          {status === 'ready' && (
-            <span className="text-slate-600 font-normal">({items.length})</span>
-          )}
+          WHAT'S NEW
+          {status === 'ready' && <span className="text-slate-600 font-normal">({totalNew})</span>}
         </h3>
-        {items.length > 0 && (
+        {hasGroups && (
           <button
             onClick={() => setPaused(!paused)}
             className="text-[10px] text-slate-500 hover:text-cyan-400 font-mono transition-colors"
@@ -59,127 +59,112 @@ function LiveUpdatesFeed() {
       ) : (
         <div
           ref={scrollRef}
-          className="flex-1 overflow-hidden space-y-2"
+          className="flex-1 overflow-hidden space-y-1"
           onMouseEnter={() => setPaused(true)}
           onMouseLeave={() => setPaused(false)}
         >
-          {/* Duplicate list for seamless scrolling */}
-          {[...items, ...items].map((update, i) => (
-            <div
-              key={i}
-              className="flex gap-2 py-1.5 border-b border-slate-800/50 last:border-0"
-            >
-              <div
-                className="w-1 rounded-full flex-shrink-0 mt-0.5"
-                style={{
-                  backgroundColor: COMPANY_COLORS[update.company] || '#00d9ff',
-                  height: '100%',
-                  minHeight: '24px',
-                }}
-              />
-              <div className="min-w-0">
-                <p className="text-[11px] text-slate-300 leading-relaxed">
-                  {update.text}
-                </p>
-                <p className="text-[10px] text-slate-600 mt-0.5 font-mono">
-                  {update.time}
-                </p>
+          {whatsNew.map((group) => (
+            <div key={group.label}>
+              <div className="text-[9px] text-slate-600 font-mono uppercase tracking-widest mt-1.5 mb-1 flex items-center gap-2">
+                {group.label}
+                <span className="text-cyan-400/60">({group.models.length})</span>
               </div>
+              {group.models.map((m) => {
+                const color = COMPANY_COLORS[m.company] || '#00d9ff';
+                const modelIsNew = isNew(m.createdAt);
+                return (
+                  <div key={m.id} className="flex gap-2 py-1 border-b border-slate-800/30 last:border-0">
+                    <div className="w-1 rounded-full flex-shrink-0" style={{ backgroundColor: color, minHeight: 20 }} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-slate-300 truncate">{m.name}</span>
+                        {modelIsNew && (
+                          <span className="text-[8px] px-1 py-0 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-mono flex-shrink-0">NEW</span>
+                        )}
+                      </div>
+                      <div className="text-[9px] text-slate-600 font-mono flex items-center gap-1.5 mt-0.5">
+                        <span style={{ color }}>{m.company}</span>
+                        <span>·</span>
+                        <span>↓{m.downloadsFormatted}</span>
+                        <span>·</span>
+                        <span>{velocityFormatted(m)}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ))}
+          {!hasGroups && (
+            <div className="flex-1 flex items-center justify-center text-[11px] text-slate-600">No models found</div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function InsightsCards() {
-  const { modelReleases, companies, status } = useData();
+function SmartInsights({ onApplyFilter }) {
+  const { smartInsights } = useFilters();
+  const { COMPANY_COLORS } = useData();
   const [active, setActive] = useState(0);
 
-  // Compute dynamic insights when data is ready
-  const dynamicInsights = status === 'ready' ? (() => {
-    const totalDownloads = modelReleases.reduce((sum, m) => sum + (m.downloads || 0), 0);
-    const totalLikes = modelReleases.reduce((sum, m) => sum + (m.likes || 0), 0);
-    const openSource = modelReleases.filter((m) => m.openSource).length;
-    const fmtDl = totalDownloads >= 1e9
-      ? `${(totalDownloads / 1e9).toFixed(1)}B`
-      : totalDownloads >= 1e6
-        ? `${(totalDownloads / 1e6).toFixed(0)}M`
-        : `${(totalDownloads / 1e3).toFixed(0)}K`;
-
-    return [
-      {
-        title: 'Total Tracked Downloads',
-        text: `Across ${modelReleases.length} models from ${companies.length} organizations tracked on Hugging Face.`,
-        metric: fmtDl,
-        metricLabel: 'cumulative downloads',
-      },
-      {
-        title: 'Community Engagement',
-        text: `The tracked models have received ${totalLikes.toLocaleString()} likes from the Hugging Face community.`,
-        metric: totalLikes >= 1000 ? `${(totalLikes / 1000).toFixed(1)}K` : String(totalLikes),
-        metricLabel: 'total community likes',
-      },
-      {
-        title: 'Open-Source Dominance',
-        text: `${openSource} of ${modelReleases.length} tracked models have open weights available for download and research.`,
-        metric: `${Math.round((openSource / Math.max(modelReleases.length, 1)) * 100)}%`,
-        metricLabel: 'models are open-source',
-      },
-      ...insights,
-    ];
-  })() : insights;
-
   useEffect(() => {
+    if (smartInsights.length === 0) return;
     const interval = setInterval(() => {
-      setActive((prev) => (prev + 1) % dynamicInsights.length);
-    }, 5000);
+      setActive((prev) => (prev + 1) % smartInsights.length);
+    }, 6000);
     return () => clearInterval(interval);
-  }, [dynamicInsights.length]);
+  }, [smartInsights.length]);
 
-  const insight = dynamicInsights[active] || dynamicInsights[0];
+  if (smartInsights.length === 0) return null;
+  const insight = smartInsights[active] || smartInsights[0];
 
   return (
-    <div className="glass-panel rounded-lg p-3 w-full md:w-80 h-44 flex flex-col">
+    <div className="glass-panel rounded-lg p-3 w-full md:w-80 h-48 flex flex-col">
       <h3 className="text-[11px] font-bold tracking-widest text-cyan-400 font-mono mb-2 flex items-center gap-2">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M12 2L2 7l10 5 10-5-10-5z" />
-          <path d="M2 17l10 5 10-5" />
-          <path d="M2 12l10 5 10-5" />
-        </svg>
-        AI INSIGHTS
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" /></svg>
+        DISCOVER
       </h3>
-      <div className="flex-1 flex flex-col justify-between">
-        <div>
-          <h4 className="text-sm font-semibold text-white mb-1">
-            {insight.title}
-          </h4>
-          <p className="text-[11px] text-slate-400 leading-relaxed">
-            {insight.text}
-          </p>
+      <div className="flex-1 flex flex-col">
+        {/* Tabs */}
+        <div className="flex gap-1 mb-2">
+          {smartInsights.map((ins, i) => (
+            <button
+              key={ins.key}
+              onClick={() => setActive(i)}
+              className={`text-[10px] px-2 py-0.5 rounded font-mono transition-all ${
+                i === active
+                  ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                  : 'text-slate-600 hover:text-slate-400'
+              }`}
+            >
+              {ins.icon} {ins.title.split(' ')[0]}
+            </button>
+          ))}
         </div>
-        <div className="flex items-end justify-between mt-2">
-          <div>
-            <span className="text-xl font-bold text-cyan-400 font-mono">
-              {insight.metric}
-            </span>
-            <span className="text-[10px] text-slate-500 ml-1.5 block">
-              {insight.metricLabel}
-            </span>
-          </div>
-          <div className="flex gap-1">
-            {dynamicInsights.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setActive(i)}
-                className={`w-1.5 h-1.5 rounded-full transition-all ${
-                  i === active
-                    ? 'bg-cyan-400 w-4'
-                    : 'bg-slate-600 hover:bg-slate-500'
-                }`}
-              />
-            ))}
+
+        {/* Content */}
+        <div className="flex-1">
+          <p className="text-[10px] text-slate-500 mb-2">{insight.subtitle}</p>
+          <div className="flex flex-col gap-1.5">
+            {insight.models.map((m, i) => {
+              const color = COMPANY_COLORS[m.company] || '#00d9ff';
+              return (
+                <div key={m.id} className="flex items-center gap-2 py-1 px-2 rounded bg-slate-900/40 border border-slate-800/30">
+                  <span className="text-[10px] text-slate-600 font-mono w-3">{i + 1}.</span>
+                  <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                  <span className="text-[11px] text-slate-300 truncate flex-1">{m.name}</span>
+                  <span className="text-[9px] text-slate-500 font-mono flex-shrink-0">
+                    {insight.key === 'trending' || insight.key === 'rising'
+                      ? velocityFormatted(m)
+                      : insight.key === 'favorites'
+                        ? `♥${m.likes}`
+                        : m.downloadsFormatted}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -191,10 +176,10 @@ export default function BottomPanels() {
   return (
     <div className="fixed bottom-3 left-3 right-3 z-40 flex flex-col md:flex-row gap-3 justify-center items-end md:items-stretch pointer-events-none">
       <div className="pointer-events-auto md:ml-56">
-        <LiveUpdatesFeed />
+        <WhatsNewFeed />
       </div>
       <div className="pointer-events-auto">
-        <InsightsCards />
+        <SmartInsights />
       </div>
     </div>
   );

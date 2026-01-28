@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import Globe from 'react-globe.gl';
 import * as THREE from 'three';
 import { useData } from '../context/DataContext';
+import { useFilters } from '../context/FilterContext';
 
 const GLOBE_IMAGE_URL =
   '//unpkg.com/three-globe/example/img/earth-night.jpg';
@@ -14,7 +15,8 @@ export default function GlobeVisualization({
   onSelectCompany,
   selectedCompany,
 }) {
-  const { companies, connections, modelReleases, status } = useData();
+  const { companies, connections, status } = useData();
+  const { filteredModels } = useFilters();
   const globeRef = useRef();
   const [dimensions, setDimensions] = useState({
     width: window.innerWidth,
@@ -93,9 +95,9 @@ export default function GlobeVisualization({
 
   // ---- Model release markers ----
   const modelMarkersData = useMemo(() => {
-    if (!layers.modelReleases || status !== 'ready') return [];
+    if (!layers.filteredModels || status !== 'ready') return [];
     const grouped = {};
-    modelReleases.forEach((m) => {
+    filteredModels.forEach((m) => {
       const company = companies.find(
         (c) => c.name === m.company || c.id === m.companyId
       );
@@ -122,7 +124,7 @@ export default function GlobeVisualization({
         };
       })
     );
-  }, [layers.modelReleases, modelReleases, companies, status]);
+  }, [layers.filteredModels, filteredModels, companies, status]);
 
   // ---- Click handlers ----
   const handlePointClick = useCallback(

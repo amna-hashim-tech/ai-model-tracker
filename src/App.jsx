@@ -1,10 +1,14 @@
 import { useState, useCallback } from 'react';
 import { DataProvider } from './context/DataContext';
+import { FilterProvider } from './context/FilterContext';
 import GlobeVisualization from './components/GlobeVisualization';
 import TopBar from './components/TopBar';
+import SearchAndFilters from './components/SearchAndFilters';
 import LeftSidebar from './components/LeftSidebar';
 import BottomPanels from './components/BottomPanels';
+import TimelineControls from './components/TimelineControls';
 import ModelDetailPanel from './components/ModelDetailPanel';
+import ComparisonPanel from './components/ComparisonPanel';
 
 function AppContent() {
   const [layers, setLayers] = useState({
@@ -63,6 +67,7 @@ function AppContent() {
 
       {/* UI Overlays */}
       <TopBar />
+      <SearchAndFilters />
       <LeftSidebar
         layers={layers}
         onToggleLayer={handleToggleLayer}
@@ -75,12 +80,14 @@ function AppContent() {
           }
         }}
       />
+      <TimelineControls />
       <BottomPanels />
       <ModelDetailPanel
         model={selectedModel}
         company={selectedCompany}
         onClose={handleCloseDetail}
       />
+      <ComparisonPanel />
     </div>
   );
 }
@@ -88,7 +95,9 @@ function AppContent() {
 export default function App() {
   return (
     <DataProvider>
-      <AppContent />
+      <FilterProvider>
+        <AppContent />
+      </FilterProvider>
     </DataProvider>
   );
 }
