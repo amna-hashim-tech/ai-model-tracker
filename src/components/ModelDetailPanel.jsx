@@ -50,7 +50,7 @@ function inferLanguages(model) {
   return ['EN'];
 }
 
-export default function ModelDetailPanel({ model, company, onClose }) {
+export default function ModelDetailPanel({ model, company, onClose, onSelectModel }) {
   const { modelReleases, COMPANY_COLORS } = useData();
   const { compareList, toggleCompare } = useFilters();
   const [copiedLink, setCopiedLink] = useState(false);
@@ -125,7 +125,7 @@ export default function ModelDetailPanel({ model, company, onClose }) {
             {companyModels.map((m) => {
               const modelNew = isNew(m.createdAt);
               return (
-                <div key={m.id} className="p-2.5 rounded-md bg-slate-900/50 border border-slate-800/60 hover:border-cyan-500/30 transition-colors cursor-pointer">
+                <div key={m.id} onClick={() => onSelectModel && onSelectModel(m)} className="p-2.5 rounded-md bg-slate-900/50 border border-slate-800/60 hover:border-cyan-500/30 transition-colors cursor-pointer">
                   <div className="flex items-start justify-between mb-1">
                     <div className="flex items-center gap-1.5">
                       <span className="text-sm font-semibold text-white truncate max-w-[160px]" title={m.name}>{m.name}</span>

@@ -88,6 +88,7 @@ function AppContent() {
         model={selectedModel}
         company={selectedCompany}
         onClose={handleCloseDetail}
+        onSelectModel={handleSelectModel}
       />
       <ComparisonPanel />
     </div>
