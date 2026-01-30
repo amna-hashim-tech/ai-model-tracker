@@ -47,34 +47,90 @@ export default function ComparisonPanel() {
       // Dynamically import html2canvas
       const html2canvas = (await import('html2canvas')).default;
 
-      // CSS color overrides - map Tailwind classes to standard hex colors
+      // Regex to detect ALL modern CSS color functions that html2canvas doesn't support
+      const modernColorRegex = /oklab|oklch|lch|lab|color\(|color-mix/i;
+
+      // Check if a color value uses modern color functions
+      const isModernColor = (value) => value && modernColorRegex.test(value);
+
+      // Fallback colors map
+      const fallbackColors = {
+        text: '#e2e8f0',
+        background: 'transparent',
+        border: '#1e293b',
+        stroke: '#94a3b8',
+        fill: 'none',
+      };
+
+      // Comprehensive CSS overrides for ALL Tailwind color utilities
       const colorOverrides = `
-        * {
+        *, *::before, *::after {
           --tw-text-opacity: 1 !important;
           --tw-bg-opacity: 1 !important;
           --tw-border-opacity: 1 !important;
         }
+        /* Text colors */
         .text-white { color: #ffffff !important; }
+        .text-black { color: #000000 !important; }
+        .text-slate-50 { color: #f8fafc !important; }
+        .text-slate-100 { color: #f1f5f9 !important; }
         .text-slate-200 { color: #e2e8f0 !important; }
+        .text-slate-300 { color: #cbd5e1 !important; }
         .text-slate-400 { color: #94a3b8 !important; }
         .text-slate-500 { color: #64748b !important; }
         .text-slate-600 { color: #475569 !important; }
+        .text-slate-700 { color: #334155 !important; }
+        .text-slate-800 { color: #1e293b !important; }
+        .text-slate-900 { color: #0f172a !important; }
         .text-cyan-400 { color: #22d3ee !important; }
+        .text-cyan-500 { color: #06b6d4 !important; }
         .text-emerald-400 { color: #34d399 !important; }
+        .text-emerald-500 { color: #10b981 !important; }
         .text-yellow-400 { color: #facc15 !important; }
         .text-red-400 { color: #f87171 !important; }
         .text-purple-400 { color: #c084fc !important; }
+        .text-orange-400 { color: #fb923c !important; }
+        /* Background colors */
+        .bg-transparent { background-color: transparent !important; }
+        .bg-white { background-color: #ffffff !important; }
+        .bg-black { background-color: #000000 !important; }
+        .bg-slate-700 { background-color: #334155 !important; }
         .bg-slate-800 { background-color: #1e293b !important; }
         .bg-slate-900 { background-color: #0f172a !important; }
-        .bg-emerald-500\\/15 { background-color: rgba(16, 185, 129, 0.15) !important; }
-        .bg-emerald-500\\/20 { background-color: rgba(16, 185, 129, 0.2) !important; }
+        [class*="bg-slate-800/"] { background-color: rgba(30, 41, 59, 0.5) !important; }
+        [class*="bg-slate-900/"] { background-color: rgba(15, 23, 42, 0.5) !important; }
+        [class*="bg-emerald-500/"] { background-color: rgba(16, 185, 129, 0.15) !important; }
+        [class*="bg-cyan-500/"] { background-color: rgba(6, 182, 212, 0.15) !important; }
+        [class*="bg-purple-500/"] { background-color: rgba(168, 85, 247, 0.15) !important; }
+        [class*="bg-red-500/"] { background-color: rgba(239, 68, 68, 0.15) !important; }
+        /* Border colors */
+        .border-slate-700 { border-color: #334155 !important; }
         .border-slate-800 { border-color: #1e293b !important; }
-        .border-slate-800\\/30 { border-color: rgba(30, 41, 59, 0.3) !important; }
-        .border-slate-800\\/40 { border-color: rgba(30, 41, 59, 0.4) !important; }
-        .border-slate-800\\/60 { border-color: rgba(30, 41, 59, 0.6) !important; }
-        .border-cyan-500\\/30 { border-color: rgba(6, 182, 212, 0.3) !important; }
-        .border-emerald-500\\/30 { border-color: rgba(16, 185, 129, 0.3) !important; }
-        .glass-panel { background-color: rgba(15, 23, 42, 0.95) !important; }
+        [class*="border-slate-800/"] { border-color: rgba(30, 41, 59, 0.5) !important; }
+        [class*="border-slate-700/"] { border-color: rgba(51, 65, 85, 0.5) !important; }
+        [class*="border-cyan-500/"] { border-color: rgba(6, 182, 212, 0.3) !important; }
+        [class*="border-emerald-500/"] { border-color: rgba(16, 185, 129, 0.3) !important; }
+        [class*="border-purple-500/"] { border-color: rgba(168, 85, 247, 0.3) !important; }
+        /* Glass panel */
+        .glass-panel {
+          background-color: rgba(15, 23, 42, 0.95) !important;
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+        }
+        /* SVG elements */
+        svg { color: inherit !important; }
+        svg * {
+          stroke: currentColor !important;
+          fill: currentColor !important;
+        }
+        svg line, svg path, svg polyline, svg circle, svg rect {
+          stroke: #94a3b8 !important;
+        }
+        /* Gradients - replace with solid colors */
+        [class*="from-"], [class*="to-"], [class*="via-"] {
+          background-image: none !important;
+          background-color: #22d3ee !important;
+        }
       `;
 
       const canvas = await html2canvas(panelRef.current, {
@@ -83,48 +139,98 @@ export default function ComparisonPanel() {
         logging: false,
         useCORS: true,
         onclone: (clonedDoc, clonedElement) => {
-          // Inject style overrides
+          // Inject style overrides first
           const style = clonedDoc.createElement('style');
           style.textContent = colorOverrides;
           clonedDoc.head.appendChild(style);
 
-          // Force inline styles on all elements to override any oklab colors
+          // Process regular HTML elements
           const processElement = (el) => {
-            const computed = window.getComputedStyle(el);
+            if (!el || !el.style) return;
 
-            // Get computed values and apply as inline styles with standard colors
-            const color = computed.color;
-            const bgColor = computed.backgroundColor;
-            const borderColor = computed.borderColor;
+            try {
+              const computed = window.getComputedStyle(el);
 
-            // Convert any remaining oklab to rgb by forcing style recalculation
-            if (color && !color.includes('oklab')) {
-              el.style.color = color;
-            } else if (color) {
-              // Fallback for oklab
-              el.style.color = '#e2e8f0';
-            }
+              // Process all color-related properties
+              const colorProps = [
+                'color', 'backgroundColor', 'borderColor',
+                'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor',
+                'outlineColor', 'textDecorationColor', 'caretColor'
+              ];
 
-            if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && !bgColor.includes('oklab')) {
-              el.style.backgroundColor = bgColor;
-            } else if (bgColor && bgColor.includes('oklab')) {
-              el.style.backgroundColor = 'transparent';
-            }
+              colorProps.forEach(prop => {
+                const value = computed[prop];
+                if (isModernColor(value)) {
+                  if (prop === 'color') {
+                    el.style[prop] = fallbackColors.text;
+                  } else if (prop === 'backgroundColor') {
+                    el.style[prop] = fallbackColors.background;
+                  } else {
+                    el.style[prop] = fallbackColors.border;
+                  }
+                } else if (value && value !== 'rgba(0, 0, 0, 0)') {
+                  el.style[prop] = value;
+                }
+              });
 
-            if (borderColor && !borderColor.includes('oklab')) {
-              el.style.borderColor = borderColor;
-            } else if (borderColor && borderColor.includes('oklab')) {
-              el.style.borderColor = '#1e293b';
+              // Handle box-shadow separately (can contain colors)
+              const boxShadow = computed.boxShadow;
+              if (isModernColor(boxShadow)) {
+                el.style.boxShadow = 'none';
+              }
+
+            } catch (e) {
+              // Ignore errors for elements that don't support getComputedStyle
             }
           };
 
-          // Process all elements
+          // Process SVG elements specifically
+          const processSVG = (svg) => {
+            if (!svg) return;
+
+            // Set explicit colors on SVG
+            svg.style.color = '#94a3b8';
+
+            // Process all SVG child elements
+            svg.querySelectorAll('*').forEach(el => {
+              const stroke = el.getAttribute('stroke');
+              const fill = el.getAttribute('fill');
+
+              if (stroke && stroke !== 'none' && stroke !== 'currentColor') {
+                if (isModernColor(stroke)) {
+                  el.setAttribute('stroke', '#94a3b8');
+                }
+              } else if (stroke === 'currentColor') {
+                el.setAttribute('stroke', '#94a3b8');
+              }
+
+              if (fill && fill !== 'none' && fill !== 'currentColor') {
+                if (isModernColor(fill)) {
+                  el.setAttribute('fill', '#94a3b8');
+                }
+              }
+
+              // Also check style attribute
+              const styleAttr = el.getAttribute('style') || '';
+              if (isModernColor(styleAttr)) {
+                el.setAttribute('style', styleAttr.replace(modernColorRegex, '#94a3b8'));
+              }
+            });
+          };
+
+          // Process all elements including the root
           processElement(clonedElement);
-          clonedElement.querySelectorAll('*').forEach(processElement);
+          clonedElement.querySelectorAll('*').forEach(el => {
+            processElement(el);
+          });
+
+          // Process all SVGs
+          clonedElement.querySelectorAll('svg').forEach(processSVG);
 
           // Set explicit background on the panel
           clonedElement.style.backgroundColor = '#0f172a';
           clonedElement.style.color = '#e2e8f0';
+          clonedElement.style.backdropFilter = 'none';
         },
       });
 
