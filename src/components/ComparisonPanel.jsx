@@ -47,27 +47,35 @@ export default function ComparisonPanel() {
       // Dynamically import html2canvas
       const html2canvas = (await import('html2canvas')).default;
 
-      // Helper to convert computed colors to RGB (html2canvas doesn't support oklab)
-      const convertColorsToRGB = (element) => {
-        const computedStyle = window.getComputedStyle(element);
-        const colorProps = ['color', 'backgroundColor', 'borderColor', 'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor', 'boxShadow', 'textShadow'];
-
-        colorProps.forEach(prop => {
-          const value = computedStyle.getPropertyValue(prop.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`));
-          if (value && value.includes('oklab')) {
-            // Create temp element to convert color
-            const temp = document.createElement('div');
-            temp.style.color = value;
-            document.body.appendChild(temp);
-            const rgb = window.getComputedStyle(temp).color;
-            document.body.removeChild(temp);
-            element.style[prop] = rgb;
-          }
-        });
-
-        // Process children
-        Array.from(element.children).forEach(child => convertColorsToRGB(child));
-      };
+      // CSS color overrides - map Tailwind classes to standard hex colors
+      const colorOverrides = `
+        * {
+          --tw-text-opacity: 1 !important;
+          --tw-bg-opacity: 1 !important;
+          --tw-border-opacity: 1 !important;
+        }
+        .text-white { color: #ffffff !important; }
+        .text-slate-200 { color: #e2e8f0 !important; }
+        .text-slate-400 { color: #94a3b8 !important; }
+        .text-slate-500 { color: #64748b !important; }
+        .text-slate-600 { color: #475569 !important; }
+        .text-cyan-400 { color: #22d3ee !important; }
+        .text-emerald-400 { color: #34d399 !important; }
+        .text-yellow-400 { color: #facc15 !important; }
+        .text-red-400 { color: #f87171 !important; }
+        .text-purple-400 { color: #c084fc !important; }
+        .bg-slate-800 { background-color: #1e293b !important; }
+        .bg-slate-900 { background-color: #0f172a !important; }
+        .bg-emerald-500\\/15 { background-color: rgba(16, 185, 129, 0.15) !important; }
+        .bg-emerald-500\\/20 { background-color: rgba(16, 185, 129, 0.2) !important; }
+        .border-slate-800 { border-color: #1e293b !important; }
+        .border-slate-800\\/30 { border-color: rgba(30, 41, 59, 0.3) !important; }
+        .border-slate-800\\/40 { border-color: rgba(30, 41, 59, 0.4) !important; }
+        .border-slate-800\\/60 { border-color: rgba(30, 41, 59, 0.6) !important; }
+        .border-cyan-500\\/30 { border-color: rgba(6, 182, 212, 0.3) !important; }
+        .border-emerald-500\\/30 { border-color: rgba(16, 185, 129, 0.3) !important; }
+        .glass-panel { background-color: rgba(15, 23, 42, 0.95) !important; }
+      `;
 
       const canvas = await html2canvas(panelRef.current, {
         backgroundColor: '#0f172a',
@@ -75,19 +83,48 @@ export default function ComparisonPanel() {
         logging: false,
         useCORS: true,
         onclone: (clonedDoc, clonedElement) => {
-          // Convert all oklab colors to RGB in the cloned element
-          convertColorsToRGB(clonedElement);
+          // Inject style overrides
+          const style = clonedDoc.createElement('style');
+          style.textContent = colorOverrides;
+          clonedDoc.head.appendChild(style);
 
-          // Also apply explicit fallback styles for common elements
-          const allElements = clonedElement.querySelectorAll('*');
-          allElements.forEach(el => {
-            const cs = window.getComputedStyle(el);
-            // Force color and background to computed RGB values
-            if (cs.color) el.style.color = cs.color;
-            if (cs.backgroundColor && cs.backgroundColor !== 'rgba(0, 0, 0, 0)') {
-              el.style.backgroundColor = cs.backgroundColor;
+          // Force inline styles on all elements to override any oklab colors
+          const processElement = (el) => {
+            const computed = window.getComputedStyle(el);
+
+            // Get computed values and apply as inline styles with standard colors
+            const color = computed.color;
+            const bgColor = computed.backgroundColor;
+            const borderColor = computed.borderColor;
+
+            // Convert any remaining oklab to rgb by forcing style recalculation
+            if (color && !color.includes('oklab')) {
+              el.style.color = color;
+            } else if (color) {
+              // Fallback for oklab
+              el.style.color = '#e2e8f0';
             }
-          });
+
+            if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && !bgColor.includes('oklab')) {
+              el.style.backgroundColor = bgColor;
+            } else if (bgColor && bgColor.includes('oklab')) {
+              el.style.backgroundColor = 'transparent';
+            }
+
+            if (borderColor && !borderColor.includes('oklab')) {
+              el.style.borderColor = borderColor;
+            } else if (borderColor && borderColor.includes('oklab')) {
+              el.style.borderColor = '#1e293b';
+            }
+          };
+
+          // Process all elements
+          processElement(clonedElement);
+          clonedElement.querySelectorAll('*').forEach(processElement);
+
+          // Set explicit background on the panel
+          clonedElement.style.backgroundColor = '#0f172a';
+          clonedElement.style.color = '#e2e8f0';
         },
       });
 
