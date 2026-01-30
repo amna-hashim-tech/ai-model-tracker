@@ -47,11 +47,48 @@ export default function ComparisonPanel() {
       // Dynamically import html2canvas
       const html2canvas = (await import('html2canvas')).default;
 
+      // Helper to convert computed colors to RGB (html2canvas doesn't support oklab)
+      const convertColorsToRGB = (element) => {
+        const computedStyle = window.getComputedStyle(element);
+        const colorProps = ['color', 'backgroundColor', 'borderColor', 'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor', 'boxShadow', 'textShadow'];
+
+        colorProps.forEach(prop => {
+          const value = computedStyle.getPropertyValue(prop.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`));
+          if (value && value.includes('oklab')) {
+            // Create temp element to convert color
+            const temp = document.createElement('div');
+            temp.style.color = value;
+            document.body.appendChild(temp);
+            const rgb = window.getComputedStyle(temp).color;
+            document.body.removeChild(temp);
+            element.style[prop] = rgb;
+          }
+        });
+
+        // Process children
+        Array.from(element.children).forEach(child => convertColorsToRGB(child));
+      };
+
       const canvas = await html2canvas(panelRef.current, {
         backgroundColor: '#0f172a',
         scale: 2,
         logging: false,
         useCORS: true,
+        onclone: (clonedDoc, clonedElement) => {
+          // Convert all oklab colors to RGB in the cloned element
+          convertColorsToRGB(clonedElement);
+
+          // Also apply explicit fallback styles for common elements
+          const allElements = clonedElement.querySelectorAll('*');
+          allElements.forEach(el => {
+            const cs = window.getComputedStyle(el);
+            // Force color and background to computed RGB values
+            if (cs.color) el.style.color = cs.color;
+            if (cs.backgroundColor && cs.backgroundColor !== 'rgba(0, 0, 0, 0)') {
+              el.style.backgroundColor = cs.backgroundColor;
+            }
+          });
+        },
       });
 
       // Create download link
